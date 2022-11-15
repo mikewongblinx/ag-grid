@@ -338,10 +338,13 @@ export class BlockUtils extends BeanStub {
     public createNodeIdPrefix(parentRowNode: RowNode): string | undefined {
         const parts: string[] = [];
         let rowNode: RowNode | null = parentRowNode;
-
         // pull keys from all parent nodes, but do not include the root node
         while (rowNode && rowNode.level >= 0) {
-            parts.push(rowNode.key!);
+            if (rowNode.key === '') {
+                parts.push('AgGrid_EmptyKey')
+            } else {
+                parts.push(rowNode.key!);
+            }
             rowNode = rowNode.parent;
         }
 
