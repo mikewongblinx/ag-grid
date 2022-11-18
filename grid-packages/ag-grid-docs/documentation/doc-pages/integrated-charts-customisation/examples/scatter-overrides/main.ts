@@ -27,7 +27,6 @@ const gridOptions: GridOptions = {
   chartThemeOverrides: {
     scatter: {
       series: {
-        strokeWidth: 2,
         highlightStyle: {
           item: {
             fill: 'red',

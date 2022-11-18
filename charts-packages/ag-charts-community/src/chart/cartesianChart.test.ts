@@ -106,8 +106,20 @@ const OPTIONS: AgCartesianChartOptions = {
         {
             type: 'area',
             xKey: 'year',
-            yKeys: ['adults', 'children'],
-            yNames: ['Adults', 'Children'],
+            yKey: 'adults',
+            yName: 'Adults',
+            stacked: true,
+            strokeWidth: 10,
+            normalizedTo: 32,
+            marker: { enabled: true },
+            label: { enabled: true },
+        },
+        {
+            type: 'area',
+            xKey: 'year',
+            yKey: 'children',
+            yName: 'Children',
+            stacked: true,
             strokeWidth: 10,
             normalizedTo: 32,
             marker: { enabled: true },
@@ -207,7 +219,7 @@ describe('CartesianChart', () => {
                 options.width = CANVAS_WIDTH;
                 options.height = CANVAS_HEIGHT;
 
-                chart = AgChart.create<any>(options) as CartesianChart;
+                chart = AgChart.create(options) as CartesianChart;
                 await waitForChartStability(chart);
 
                 const seriesImpl = chart.series.find(
@@ -250,7 +262,7 @@ describe('CartesianChart', () => {
             options.width = CANVAS_WIDTH;
             options.height = CANVAS_HEIGHT;
 
-            chart = AgChart.create<any>(options) as CartesianChart;
+            chart = AgChart.create(options) as CartesianChart;
             await waitForChartStability(chart);
 
             const series = chart.series.find((v: any) => v.type === 'scatter');

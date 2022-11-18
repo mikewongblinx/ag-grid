@@ -101,7 +101,7 @@ export class LazyCache extends BeanStub {
 
         // no node was found before this display index, so calculate based on store end index
         if (nodeAfterStringIndex == null) {
-            const storeIndexFromEndIndex = this.store.getRowCount() - (this.store.getDisplayIndexEnd()! - displayIndex - 1);
+            const storeIndexFromEndIndex = this.store.getRowCount() - (this.store.getDisplayIndexEnd()! - displayIndex);
             return this.createStubNode(storeIndexFromEndIndex, displayIndex);
         }
 
@@ -236,8 +236,7 @@ export class LazyCache extends BeanStub {
      * @returns the new row node
      */
     private createRowAtIndex(atStoreIndex: number, data?: any): RowNode {
-        const getRowId = this.gridOptionsWrapper.getRowIdFunc();
-        const usingRowIds = !!getRowId;
+        const usingRowIds = this.isUsingRowIds();
 
         // make sure an existing node isn't being overwritten
         const existingNodeAtIndex = this.nodeIndexMap[atStoreIndex];
@@ -301,6 +300,7 @@ export class LazyCache extends BeanStub {
 
     public destroyRowAtIndex(atStoreIndex: number) {
         const node = this.nodeIndexMap[atStoreIndex];
+        this.nodeIds.delete(node.id!);
         this.blockUtils.destroyRowNode(node);
         delete this.nodeIndexMap[atStoreIndex];
     }
@@ -336,17 +336,8 @@ export class LazyCache extends BeanStub {
             return false;
         }
 
-        const getRowIdFunc = this.gridOptionsWrapper.getRowIdFunc();
-
-        if (getRowIdFunc != null) {
-            // find rowNode using id
-            const { level, parent } = this.store.getRowDetails();
-            const parentKeys = parent.getGroupKeys();
-            const id: string = getRowIdFunc({
-                data,
-                parentKeys,
-                level,
-            });
+        if (this.isUsingRowIds()) {
+            const id: string = this.getRowId(data)!;
             return node.id === id;
         }
         return node.data === data;
@@ -465,8 +456,38 @@ export class LazyCache extends BeanStub {
         return (!!node.group && node.expanded) || this.isNodeFocused(node);
     }
 
+    private extractDuplicateIds(rows: any[]) {
+        if (!this.isUsingRowIds()) {
+            return [];
+        }
+
+        const newIds = new Set();
+        const duplicates = new Set();
+        rows.forEach(data => {
+            const id = this.getRowId(data);
+            if (newIds.has(id)) {
+                duplicates.add(id);
+                return;
+            }
+            newIds.add(id);
+        });
+
+        return [...duplicates];
+    }
+
     public onLoadSuccess(firstRowIndex: number, numberOfRowsExpected: number, response: LoadSuccessParams) {
         if (!this.live) return;
+
+        if (this.isUsingRowIds()) {
+            const duplicates = this.extractDuplicateIds(response.rowData);
+            if (duplicates.length > 0) {
+                const duplicateIdText = duplicates.join(', ');
+                console.warn(`AG Grid: Unable to display rows as duplicate row ids (${duplicateIdText}) were returned by the getRowId callback. Please modify the getRowId callback to provide unique ids.`);
+                this.onLoadFailed(firstRowIndex, numberOfRowsExpected);
+                return;
+            }
+        }
+        
         response.rowData.forEach((data, responseRowIndex) => {
             const rowIndex = firstRowIndex + responseRowIndex;
             const nodeFromCache = this.nodeIndexMap[rowIndex];
@@ -526,9 +547,7 @@ export class LazyCache extends BeanStub {
         for(let i = firstRowIndex; i < firstRowIndex + numberOfRowsExpected; i++) {
             const nodeFromCache = this.nodeIndexMap[i];
             if (nodeFromCache) {
-                this.destroyRowAtIndex(i);
-                const newNode = this.createRowAtIndex(i);
-                newNode.failedLoad = true;
+                nodeFromCache.failedLoad = true;
             }
         }
 
@@ -551,12 +570,15 @@ export class LazyCache extends BeanStub {
         this.store.fireStoreUpdatedEvent();
     }
 
-    private lookupRowNode(data: any): RowNode | null {
+    private isUsingRowIds() {
+        return this.gridOptionsWrapper.getRowIdFunc() != null;
+    }
+
+    private getRowId(data: any) {
         const getRowIdFunc = this.gridOptionsWrapper.getRowIdFunc();
 
         if (getRowIdFunc == null) {
-            // throw error, as this is type checked in the store. User likely abusing internal apis if here.
-            throw new Error('AG Grid: Insert transactions can only be applied when row ids are supplied.');
+            return null;
         }
 
         // find rowNode using id
@@ -567,6 +589,17 @@ export class LazyCache extends BeanStub {
             parentKeys: parentKeys.length > 0 ? parentKeys : undefined,
             level,
         });
+        return String(id);
+    }
+
+    private lookupRowNode(data: any): RowNode | null {
+        if (!this.isUsingRowIds()) {
+            // throw error, as this is type checked in the store. User likely abusing internal apis if here.
+            throw new Error('AG Grid: Insert transactions can only be applied when row ids are supplied.');
+        }
+
+        // find rowNode using id
+        const id: string = this.getRowId(data)!;
         return this.getAllNodes().find(node => node.id === id) ?? null;
     }
 
@@ -591,17 +624,15 @@ export class LazyCache extends BeanStub {
             return [];
         }
 
-        const idFunc = this.gridOptionsWrapper.getRowIdFunc();
-        if (idFunc == null) {
+        if (!this.isUsingRowIds()) {
             // throw error, as this is type checked in the store. User likely abusing internal apis if here.
             throw new Error('AG Grid: Insert transactions can only be applied when row ids are supplied.');
         }
 
         const uniqueInsertsMap: { [id: string]: any } = {};
         
-        const { level, parent } = this.store.getRowDetails();
         inserts.forEach(data => {
-            const dataId = idFunc({ data, level, parentKeys: parent.getGroupKeys() });
+            const dataId = this.getRowId(data)!;
             if (dataId && this.isNodeInCache(dataId)) {
                 console.warn(`AG Grid: Ignoring add transaction for a new row with rowId=${dataId} as this row is already in the grid.`);
                 return;
@@ -648,8 +679,7 @@ export class LazyCache extends BeanStub {
     }
 
     public removeRowNodes(idsToRemove: string[]): RowNode[] {
-        const idFunc = this.gridOptionsWrapper.getRowIdFunc();
-        if (idFunc == null) {
+        if (!this.isUsingRowIds()) {
             // throw error, as this is type checked in the store. User likely abusing internal apis if here.
             throw new Error('AG Grid: Insert transactions can only be applied when row ids are supplied.');
         }
