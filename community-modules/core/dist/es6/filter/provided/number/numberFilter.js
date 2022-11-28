@@ -36,8 +36,8 @@ var NumberFilter = /** @class */ (function (_super) {
     NumberFilter.prototype.mapValuesFromModel = function (filterModel) {
         var _a = filterModel || {}, filter = _a.filter, filterTo = _a.filterTo, type = _a.type;
         return [
-            filter || null,
-            filterTo || null,
+            filter == null ? null : filter,
+            filterTo == null ? null : filterTo,
         ].slice(0, this.getNumberOfInputs(type));
     };
     NumberFilter.prototype.getDefaultDebounceMs = function () {

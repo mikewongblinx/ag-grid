@@ -37,7 +37,25 @@ const executeLernaCommand = (arguments) => {
 };
 
 
-const getCommunityScopes = () => flattenArray(getScopeForBarrelledModules(['../../community']));
+const getCommunityScopes = () => {
+    // const arr = flattenArray(getScopeForBarrelledModules(['../../community']))
+    return [
+        '--scope',
+        '@ag-grid-community/all-modules',
+
+        '--scope',
+        '@ag-grid-community/client-side-row-model',
+        '--scope',
+        '@ag-grid-community/core',
+        '--scope',
+        '@ag-grid-community/csv-export',
+        '--scope',
+        '@ag-grid-community/infinite-row-model',
+
+        '--scope',
+        '@ag-grid-community/react',
+    ];
+};
 const getEnterpriseScopes = () => flattenArray(getScopeForBarrelledModules(['../../enterprise']));
 const getModuleScopes = () => flattenArray(getScopeForBarrelledModules(['../../community', '../../enterprise']));
 const getChartsModuleScopes = () => flattenArray(getScopeForModules('../../charts-packages'));
